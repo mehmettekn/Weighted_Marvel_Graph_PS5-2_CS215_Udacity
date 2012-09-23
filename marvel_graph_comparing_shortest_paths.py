@@ -5,21 +5,22 @@ def make_link(G, node1, node2):
     if node1 not in G:
         G[node1] = {}
     if node2 not in G[node1]:
-        (G[node1])[node2] = 1
+        G[node1][node2] = 1.0
     else:
-        (G[node1])[node2] += 1
+        G[node1][node2] += 1.0
     if node2 not in G:
         G[node2] = {}
     if node1 not in G[node2]:
-        (G[node2])[node1] = 1
+        G[node2][node1] = 1.0
     else:
-        (G[node2])[node1] += 1
+        G[node2][node1] += 1.0
     return G
 
 def weight_graph(G):
     for node1 in G:
-        for node2 in G[node1]:
-            G[node1][node2] = 1.0/G[node1][node2]
+        node1 = G[node1]
+        for node2 in node1:
+            node1[node2] = 1.0/node1[node2]
     return G
 
 def unweighted_graph(G):
@@ -37,8 +38,8 @@ def read_graph(filename):
         if char not in characters:
             characters[char] = index
             index += 1
-            comicbooks [comic] = True
-            marvelG = make_link(marvelG, char, comic)
+        comicbooks [comic] = True
+        marvelG = make_link(marvelG, char, comic)
 
     for char1 in characters:
         for book in marvelG[char1]:
@@ -173,6 +174,8 @@ def dijkstra(G,v):
     final_dist = {}
     dist = {}
     dist[v] = 0
+    shortest_paths = {}
+    shortest_paths[v] = [[v]]
     while len(final_dist) < len(G) and len(dist_so_far) != 0:
         w = dist_so_far.pop_smallest()
         # lock it down!
@@ -183,33 +186,49 @@ def dijkstra(G,v):
                 if x not in dist:
                     dist[x] = final_dist[w] + G[w][x]
                     dist_so_far[x] = final_dist[w] + G[w][x]
+                    paths = [path + [x] for path in shortest_paths[w]]
+                    shortest_paths[x] = paths                    
                 elif final_dist[w] + G[w][x] < dist[x]:
                     dist[x] = final_dist[w] + G[w][x]
                     dist_so_far[x] = final_dist[w] + G[w][x]
-    return final_dist
-
+                    paths = [path + [x] for path in shortest_paths[w]]
+                    shortest_paths[x] = paths
+                elif final_dist[w] + G[w][x] == dist[x]:
+                    paths = [path + [x] for path in shortest_paths[w]]
+                    shortest_paths[x].extend(paths)
+                    dist_so_far[x] = final_dist[w] + G[w][x]
+                    
+    return final_dist, shortest_paths
 
 total = 0
-'''
+counter  = 0
 print 'calculating shortest paths...'
-for char in chars:
-    w_shortest_paths = dijkstra(w_charG, char)
-    u_shortest_paths = dijkstra(u_charG, char)
-    counter = 0
-    for char2 in w_shortest_paths:
-        #min_number_nodes_path = w_shortest_paths[char2]
 
-        if w_shortest_paths[char2] != u_shortest_paths[char2]:
+for char in chars:
+    w_final_dist, w_shortest_paths = dijkstra(w_charG, char)
+    u_final_dist, u_shortest_paths = dijkstra(u_charG, char)
+    print w_charG == u_charG, 'ta am'
+    print charG == w_charG
+    print charG == {}
+
+
+    
+    for char2 in w_shortest_paths:
+        min_number_nodes_path = min(w_shortest_paths[char2], key = lambda n : len(n))
+        if min_number_nodes_path not in u_shortest_paths[char2]:
             counter += 1
             total += 1
+    
+    
     print char, ' = ', counter, ' differences.'
 
 print 'Total number of differences:', total
-'''
-print dijkstra(w_charG, chars[2])
-print dijkstra(u_charG, chars[2])
-print chars[2]
-print chars[2] in w_charG
-print w_charG
-                 
-    
+
+
+
+
+print w_charG == u_charG, 'ta am'
+print charG == w_charG
+print charG == {}
+
+
