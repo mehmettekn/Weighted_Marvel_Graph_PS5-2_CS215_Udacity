@@ -1,5 +1,11 @@
-import csv
+""" Utility Functions"""
 
+import csv
+import time
+from random import randint
+import heapq
+from priority_dictionary import priority_dict
+from collections import deque
 
 def make_link(G, node1, node2):
     if node1 not in G:
@@ -35,16 +41,16 @@ def read_graph(filename):
     index = 0
     
     for (char, comic) in tsv:
-        if char not in characters:
-            characters[char] = index
-            index += 1
-        comicbooks [comic] = True
+        characters[char] = True
+        comicbooks[comic] = True
         marvelG = make_link(marvelG, char, comic)
 
+    done = set()
     for char1 in characters:
+        done.add(char1)
         for book in marvelG[char1]:
             for char2 in marvelG[book]:
-                if characters[char1] < characters[char2]:
+                if char2 not in done:
                     charG = make_link(charG, char1, char2)
     return marvelG, charG
 
@@ -63,110 +69,10 @@ u_charG = unweighted_graph(charG)
 """Below is the list of characters in question."""
 
 chars = ['SPIDER-MAN/PETER PAR',
-'GREEN GOBLIN/NORMAN ',
-'WOLVERINE/LOGAN ',
-'PROFESSOR X/CHARLES ',
-'CAPTAIN AMERICA']
-
-
-""" Utility Functions"""
-
-import time
-from random import randint
-import heapq
-
-""" priority_dict class was used to  implement heaps efficiently. The class makes it
-possible to update the dictionary key values in constant time. The class was taken from
-the url given below."""
-
-## {{{ http://code.activestate.com/recipes/522995/ (r1)
-from heapq import heapify, heappush, heappop
-
-class priority_dict(dict):
-    """Dictionary that can be used as a priority queue.
-
-    Keys of the dictionary are items to be put into the queue, and values
-    are their respective priorities. All dictionary methods work as expected.
-    The advantage over a standard heapq-based priority queue is
-    that priorities of items can be efficiently updated (amortized O(1))
-    using code as 'thedict[item] = new_priority.'
-
-    The 'smallest' method can be used to return the object with lowest
-    priority, and 'pop_smallest' also removes it.
-
-    The 'sorted_iter' method provides a destructive sorted iterator.
-    """
-    
-    def __init__(self, *args, **kwargs):
-        super(priority_dict, self).__init__(*args, **kwargs)
-        self._rebuild_heap()
-
-    def _rebuild_heap(self):
-        self._heap = [(v, k) for k, v in self.iteritems()]
-        heapify(self._heap)
-
-    def smallest(self):
-        """Return the item with the lowest priority.
-
-        Raises IndexError if the object is empty.
-        """
-        
-        heap = self._heap
-        v, k = heap[0]
-        while k not in self or self[k] != v:
-            heappop(heap)
-            v, k = heap[0]
-        return k
-
-    def pop_smallest(self):
-        """Return the item with the lowest priority and remove it.
-
-        Raises IndexError if the object is empty.
-        """
-        
-        heap = self._heap
-        v, k = heappop(heap)
-        while k not in self or self[k] != v:
-            v, k = heappop(heap)
-        del self[k]
-        return k
-
-    def __setitem__(self, key, val):
-        # We are not going to remove the previous value from the heap,
-        # since this would have a cost O(n).
-        
-        super(priority_dict, self).__setitem__(key, val)
-        
-        if len(self._heap) < 2 * len(self):
-            heappush(self._heap, (val, key))
-        else:
-            # When the heap grows larger than 2 * len(self), we rebuild it
-            # from scratch to avoid wasting too much memory.
-            self._rebuild_heap()
-
-    def setdefault(self, key, val):
-        if key not in self:
-            self[key] = val
-            return val
-        return self[key]
-
-    def update(self, *args, **kwargs):
-        # Reimplementing dict.update is tricky -- see e.g.
-        # http://mail.python.org/pipermail/python-ideas/2007-May/000744.html
-        # We just rebuild the heap from scratch after passing to super.
-        
-        super(priority_dict, self).update(*args, **kwargs)
-        self._rebuild_heap()
-
-    def sorted_iter(self):
-        """Sorted iterator of the priority dictionary items.
-
-        Beware: this will destroy elements as they are returned.
-        """
-        
-        while self:
-            yield self.pop_smallest()
-## end of http://code.activestate.com/recipes/522995/ }}}
+         'GREEN GOBLIN/NORMAN ',
+         'WOLVERINE/LOGAN ',
+         'PROFESSOR X/CHARLES ',
+         'CAPTAIN AMERICA']
 
 def dijkstra(G,v):
     dist_so_far = priority_dict()
@@ -176,7 +82,7 @@ def dijkstra(G,v):
     dist[v] = 0
     shortest_paths = {}
     shortest_paths[v] = [[v]]
-    while len(final_dist) < len(G) and len(dist_so_far) != 0:
+    while len(dist_so_far) != 0:
         w = dist_so_far.pop_smallest()
         # lock it down!
         final_dist[w] = dist[w]
@@ -200,35 +106,53 @@ def dijkstra(G,v):
                     
     return final_dist, shortest_paths
 
+
+def bfs(G, node):
+    final_dist = {node:(0, node, None)}
+    open_list = deque([node])
+    while len(open_list) > 0:
+        node = open_list.popleft()
+        dist, _, _ = final_dist[node]
+        for neighbor in G[node]:
+            if neighbor not in final_dist:
+                continue
+            final_dist[neighbor] = (dist + 1, neighbor, node)
+            open_list.append(neighbor)
+    return final_dist
+
+def get_parent(pair): return pair[2]
+def find_path(dist, target):
+    node = target
+    path = [target]
+    while True:
+        prev = get_parent(dist[node])
+        if prev is None:
+            # We've rached our target, so return 
+            # the path
+            return path
+        path.append(prev)
+        node = prev
+
 total = 0
 counter  = 0
+answers = []
 print 'calculating shortest paths...'
 
-for char in chars:
-    w_final_dist, w_shortest_paths = dijkstra(w_charG, char)
-    u_final_dist, u_shortest_paths = dijkstra(u_charG, char)
-    print w_charG == u_charG, 'ta am'
-    print charG == w_charG
-    print charG == {}
+for char1 in chars:
+    w_final_dist, w_shortest_paths = dijkstra(w_charG, char1)
+    u_final_dist = bfs(u_charG, char1)
+    for char2 in w_final_dist:
+        if char1 == char2: continue
+        char_path = min(w_shortest_paths[char2], key = lambda n: len(n))
+        hop_path = find_path(u_final_dist, char1)
+        if len(char_path) > len(hop_path):
+            answers.append(((char1, char2), (char_path, hop_path)))
+    print char1, len(answers) - counter
+    counter = len(answers)
 
+print len(answers)
+        
+        
 
-    
-    for char2 in w_shortest_paths:
-        min_number_nodes_path = min(w_shortest_paths[char2], key = lambda n : len(n))
-        if min_number_nodes_path not in u_shortest_paths[char2]:
-            counter += 1
-            total += 1
-    
-    
-    print char, ' = ', counter, ' differences.'
-
-print 'Total number of differences:', total
-
-
-
-
-print w_charG == u_charG, 'ta am'
-print charG == w_charG
-print charG == {}
 
 
